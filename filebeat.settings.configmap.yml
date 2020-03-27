@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: kube-system
+  name: filebeat-config
+  labels:
+    app: filebeat
+data:
+  filebeat.yml: |-
+    filebeat.inputs:
+    - type: container
+      paths:
+	      - /var/log/containers/*.log
+      processors:
+        - add_kubernetes_metadata:
+            in_cluster: true
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+      fields:
+        cluster: cl02
+
+    filebeat.modules:
+      - module: system
+        syslog:
+          enabled: true
+        auth:
+          enabled: true
+
+    filebeat.autodiscover:
+      providers:
+        - type: kubernetes
+          templates:
+            - condition.equals:
+                kubernetes.labels.app: mongo
+              config:
+                - module: mongodb
+                  enabled: true
+                  log:
+                    input:
+                      type: docker
+                      containers.ids:
+                        - ${data.kubernetes.container.id}
+      fields:
+        cluster: cl02
+
+    processors:
+      - drop_event:
+          when.or:
+              - and:
+                  - regexp:
+                      message: '^\d+\.\d+\.\d+\.\d+ '
+                  - equals:
+                      fileset.name: error
+              - and:
+                  - not:
+                      regexp:
+                          message: '^\d+\.\d+\.\d+\.\d+ '
+                  - equals:
+                      fileset.name: access
+      - add_cloud_metadata:
+      - add_host_metadata:
+      - add_kubernetes_metadata:
+      - add_docker_metadata:
+
+    output.logstash:
+      hosts: ['${GRAYLOG_HOST}:${GRAYLOG_PORT}']
+
+    setup.dashboards.enabled: false
+    setup.template.enabled: false
