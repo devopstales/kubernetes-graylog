@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,10 +11,9 @@ data:
     filebeat.inputs:
     - type: container
       paths:
-	      - /var/log/containers/*.log
+        - /var/log/containers/*.log
       processors:
         - add_kubernetes_metadata:
-            in_cluster: true
             host: ${NODE_NAME}
             matchers:
             - logs_path:
@@ -21,51 +21,27 @@ data:
       fields:
         cluster: cl02
 
-    filebeat.modules:
-      - module: system
-        syslog:
-          enabled: true
-        auth:
-          enabled: true
-
     filebeat.autodiscover:
       providers:
         - type: kubernetes
-          templates:
-            - condition.equals:
-                kubernetes.labels.app: mongo
-              config:
-                - module: mongodb
-                  enabled: true
-                  log:
-                    input:
-                      type: docker
-                      containers.ids:
-                        - ${data.kubernetes.container.id}
+          node: ${NODE_NAME}
+          hints.enabled: true
+          hints.default_config:
+            type: container
+            paths:
+              - /var/log/containers/*${data.kubernetes.container.id}.log
       fields:
         cluster: cl02
 
     processors:
-      - drop_event:
-          when.or:
-              - and:
-                  - regexp:
-                      message: '^\d+\.\d+\.\d+\.\d+ '
-                  - equals:
-                      fileset.name: error
-              - and:
-                  - not:
-                      regexp:
-                          message: '^\d+\.\d+\.\d+\.\d+ '
-                  - equals:
-                      fileset.name: access
       - add_cloud_metadata:
       - add_host_metadata:
-      - add_kubernetes_metadata:
-      - add_docker_metadata:
+      - add_kubernetes_metadata
 
     output.logstash:
       hosts: ['${GRAYLOG_HOST}:${GRAYLOG_PORT}']
 
-    setup.dashboards.enabled: false
-    setup.template.enabled: false
+    #output.elasticsearch:
+    #  hosts: ['${ELASTICSEARCH_HOST:elasticsearch}:${ELASTICSEARCH_PORT:9200}']
+    #  username: ${ELASTICSEARCH_USERNAME}
+    #  password: ${ELASTICSEARCH_PASSWORD}
