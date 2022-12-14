@@ -36,7 +36,7 @@ data:
     processors:
       - add_cloud_metadata:
       - add_host_metadata:
-      - add_kubernetes_metadata
+      - add_kubernetes_metadata:
 
     output.logstash:
       hosts: ['${GRAYLOG_HOST}:${GRAYLOG_PORT}']
